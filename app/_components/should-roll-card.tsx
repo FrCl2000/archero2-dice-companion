@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Gift, Hexagon, CircleDollarSign, ScrollText, Key, Sparkles, Shovel, Star, Ticket, Gem, Eye, EyeOff } from 'lucide-react';
+import { Gift, Hexagon, CircleDollarSign, ScrollText, Key, Sparkles, Shovel, Star, Ticket, Gem } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { findDiceForSuccessRate } from '../_utils/simulate';
@@ -89,12 +89,11 @@ export default function ShouldRollCard({ className }: ShouldRollCardProps) {
           <CardAction>
             <Button
               variant='ghost'
-              size='icon'
+              size='sm'
               onClick={() => setShowRewards((prev) => !prev)}
-              aria-label={showRewards ? 'Hide rewards' : 'Show rewards'}
               disabled={!result}
             >
-              {showRewards ? <EyeOff /> : <Eye />}
+              {showRewards ? 'Hide Rewards' : 'Show Rewards'}
             </Button>
           </CardAction>
         </div>
@@ -171,25 +170,8 @@ export default function ShouldRollCard({ className }: ShouldRollCardProps) {
           </form>
         </Form>
         {result && (
-          <div ref={resultRef} className='mt-2 flex flex-col gap-1'>
+          <div ref={resultRef} className='mt-2'>
             <span className='text-lg'>You need {result.dice} dice</span>
-            <div className='grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-2 items-center mt-1'>
-              {result.tokens > 0 && (
-                <>
-                  <span className='col-span-3 font-semibold'>Gem exchange:</span>
-                  <div className='flex gap-0.5 justify-center'>
-                    <Ticket className='h-4 w-4 text-muted-foreground' />
-                  </div>
-                  <span className='text-sm'>Treasure coins</span>
-                  <span className='text-sm font-semibold tabular-nums'>{result.tokens}</span>
-                  <div className='flex gap-0.5 justify-center'>
-                    <Gem className='h-4 w-4 text-muted-foreground' />
-                  </div>
-                  <span className='text-sm'>Gems to buy all</span>
-                  <span className='text-sm font-semibold tabular-nums'>{result.gems.toLocaleString()}</span>
-                </>
-              )}
-            </div>
           </div>
         )}
       </CardContent>
@@ -197,10 +179,26 @@ export default function ShouldRollCard({ className }: ShouldRollCardProps) {
     {showRewards && result && (
       <Card>
         <CardHeader>
-          <span className='text-lg font-bold'>Point Milestone Rewards</span>
+          <span className='text-lg font-bold'>Rewards Breakdown</span>
         </CardHeader>
         <CardContent>
           <div className='grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-2 items-center'>
+            {result.tokens > 0 && (
+              <>
+                <span className='col-span-3 font-semibold'>Gem exchange:</span>
+                <div className='flex gap-0.5 justify-center'>
+                  <Ticket className='h-4 w-4 text-muted-foreground' />
+                </div>
+                <span className='text-sm'>Treasure coins</span>
+                <span className='text-sm font-semibold tabular-nums'>{result.tokens}</span>
+                <div className='flex gap-0.5 justify-center'>
+                  <Gem className='h-4 w-4 text-muted-foreground' />
+                </div>
+                <span className='text-sm'>Gems to buy all</span>
+                <span className='text-sm font-semibold tabular-nums'>{result.gems.toLocaleString()}</span>
+              </>
+            )}
+            <span className='col-span-3 font-semibold mt-2'>Point milestone rewards:</span>
             {REWARD_ROWS.filter((r) => (result.milestoneRewards[r.key] as number) > 0).map(({ key, label, icons }) => (
               <Fragment key={key}>
                 <div className='flex gap-0.5 justify-center'>
