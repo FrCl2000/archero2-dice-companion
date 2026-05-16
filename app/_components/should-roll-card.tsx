@@ -13,22 +13,43 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { Gift, Hexagon, CircleDollarSign, ScrollText, Key, Sparkles, Shovel, Star, Ticket, Gem } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { findDiceForSuccessRate } from '../_utils/simulate';
+import { calculateTokensAndGems, calculateMilestoneRewards, MilestoneRewards } from '../_utils/utils';
 
 const formSchema = z.object({
   goal: z.number().min(20000),
   successRate: z.number().min(50).lt(100),
 });
 
+const REWARD_ROWS: { key: keyof MilestoneRewards; label: string; icons: LucideIcon[] }[] = [
+  { key: 'drawChests',      label: 'Draw Item Chests',  icons: [Gift] },
+  { key: 'treasureCoins',   label: 'Treasure Coins',    icons: [Ticket] },
+  { key: 'maskShards',      label: 'Mask Shards',       icons: [Hexagon] },
+  { key: 'chromaKeys',      label: 'Chromatic Keys',    icons: [Key] },
+  { key: 'wishTokens',      label: 'Wish Tokens',       icons: [Sparkles] },
+  { key: 'runeShovels',     label: 'Rune Shovels',      icons: [Shovel] },
+  { key: 'promisedShovels', label: 'Promised Shovels',  icons: [Star, Shovel] },
+  { key: 'gold',            label: 'Gold',              icons: [CircleDollarSign] },
+  { key: 'scrolls',         label: 'Scroll Fragments',  icons: [ScrollText] },
+];
+
 interface ShouldRollCardProps {
   className?: string;
 }
 export default function ShouldRollCard({ className }: ShouldRollCardProps) {
   const resultRef = useRef<HTMLDivElement | null>(null);
-  const [result, setResult] = useState<number | undefined>();
+  type Result = {
+    dice: number;
+    tokens: number;
+    gems: number;
+    milestoneRewards: MilestoneRewards;
+  };
+  const [result, setResult] = useState<Result | undefined>();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -44,7 +65,9 @@ export default function ShouldRollCard({ className }: ShouldRollCardProps) {
         0
       )
     );
-    setResult(numDice);
+    const { tokens, gems } = calculateTokensAndGems(values.goal);
+    const milestoneRewards = calculateMilestoneRewards(values.goal);
+    setResult({ dice: numDice, tokens, gems, milestoneRewards });
   }
 
   useEffect(() => {
@@ -135,11 +158,39 @@ export default function ShouldRollCard({ className }: ShouldRollCardProps) {
           </form>
         </Form>
         {result && (
-          <div
-            ref={resultRef}
-            className='text-lg mt-2'
-          >
-            <span>You need {result} dice</span>
+          <div ref={resultRef} className='mt-2 flex flex-col gap-1'>
+            <span className='text-lg'>You need {result.dice} dice</span>
+            <div className='grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-2 items-center mt-1'>
+              {result.tokens > 0 && (
+                <>
+                  <span className='col-span-3 font-semibold'>Gem exchange:</span>
+                  <div className='flex gap-0.5 justify-center'>
+                    <Ticket className='h-4 w-4 text-muted-foreground' />
+                  </div>
+                  <span className='text-sm'>Treasure coins</span>
+                  <span className='text-sm font-semibold tabular-nums'>{result.tokens}</span>
+                  <div className='flex gap-0.5 justify-center'>
+                    <Gem className='h-4 w-4 text-muted-foreground' />
+                  </div>
+                  <span className='text-sm'>Gems to buy all</span>
+                  <span className='text-sm font-semibold tabular-nums'>{result.gems.toLocaleString()}</span>
+                </>
+              )}
+              <span className='col-span-3 font-semibold mt-2'>Point milestone rewards:</span>
+              {REWARD_ROWS.filter((r) => (result.milestoneRewards[r.key] as number) > 0).map(({ key, label, icons }) => (
+                <Fragment key={key}>
+                  <div className='flex gap-0.5 justify-center'>
+                    {icons.map((Icon, i) => (
+                      <Icon key={i} className='h-4 w-4 text-muted-foreground' />
+                    ))}
+                  </div>
+                  <span className='text-sm'>{label}</span>
+                  <span className='text-sm font-semibold tabular-nums'>
+                    {(result.milestoneRewards[key] as number).toLocaleString()}
+                  </span>
+                </Fragment>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>
