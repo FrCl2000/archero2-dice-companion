@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardHeader } from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Gift, Hexagon, CircleDollarSign, ScrollText, Key, Sparkles, Shovel, Star, Ticket, Gem } from 'lucide-react';
+import { Gift, Hexagon, CircleDollarSign, ScrollText, Key, Sparkles, Shovel, Star, Ticket, Gem, Eye, EyeOff } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { findDiceForSuccessRate } from '../_utils/simulate';
@@ -50,6 +50,7 @@ export default function ShouldRollCard({ className }: ShouldRollCardProps) {
     milestoneRewards: MilestoneRewards;
   };
   const [result, setResult] = useState<Result | undefined>();
+  const [showRewards, setShowRewards] = useState(true);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -80,10 +81,22 @@ export default function ShouldRollCard({ className }: ShouldRollCardProps) {
   }, [result]);
 
   return (
+    <Fragment>
     <Card className={className}>
       <CardHeader>
         <div className='flex items-center'>
           <span className='text-lg font-bold'>Should I Roll?</span>
+          <CardAction>
+            <Button
+              variant='ghost'
+              size='icon'
+              onClick={() => setShowRewards((prev) => !prev)}
+              aria-label={showRewards ? 'Hide rewards' : 'Show rewards'}
+              disabled={!result}
+            >
+              {showRewards ? <EyeOff /> : <Eye />}
+            </Button>
+          </CardAction>
         </div>
       </CardHeader>
       <CardContent>
@@ -176,24 +189,35 @@ export default function ShouldRollCard({ className }: ShouldRollCardProps) {
                   <span className='text-sm font-semibold tabular-nums'>{result.gems.toLocaleString()}</span>
                 </>
               )}
-              <span className='col-span-3 font-semibold mt-2'>Point milestone rewards:</span>
-              {REWARD_ROWS.filter((r) => (result.milestoneRewards[r.key] as number) > 0).map(({ key, label, icons }) => (
-                <Fragment key={key}>
-                  <div className='flex gap-0.5 justify-center'>
-                    {icons.map((Icon, i) => (
-                      <Icon key={i} className='h-4 w-4 text-muted-foreground' />
-                    ))}
-                  </div>
-                  <span className='text-sm'>{label}</span>
-                  <span className='text-sm font-semibold tabular-nums'>
-                    {(result.milestoneRewards[key] as number).toLocaleString()}
-                  </span>
-                </Fragment>
-              ))}
             </div>
           </div>
         )}
       </CardContent>
     </Card>
+    {showRewards && result && (
+      <Card>
+        <CardHeader>
+          <span className='text-lg font-bold'>Point Milestone Rewards</span>
+        </CardHeader>
+        <CardContent>
+          <div className='grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-2 items-center'>
+            {REWARD_ROWS.filter((r) => (result.milestoneRewards[r.key] as number) > 0).map(({ key, label, icons }) => (
+              <Fragment key={key}>
+                <div className='flex gap-0.5 justify-center'>
+                  {icons.map((Icon, i) => (
+                    <Icon key={i} className='h-4 w-4 text-muted-foreground' />
+                  ))}
+                </div>
+                <span className='text-sm'>{label}</span>
+                <span className='text-sm font-semibold tabular-nums'>
+                  {(result.milestoneRewards[key] as number).toLocaleString()}
+                </span>
+              </Fragment>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    )}
+    </Fragment>
   );
 }
