@@ -26,10 +26,10 @@ export const Quests: Quest[] = [
   {
     name: QuestName.IslandPack2,
     breakpoints: [
-      Array(7)
+      Array(28)
         .fill(0)
         .map((_v, index) => index + 1),
-      Array(7).fill(4),
+      Array(28).fill(1),
     ],
     placeholderText: '# Bought',
   },
