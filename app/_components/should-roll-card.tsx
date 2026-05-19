@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Gift, Hexagon, CircleDollarSign, ScrollText, Key, Sparkles, Shovel, Star, Ticket, Gem, Dice6, Coins } from 'lucide-react';
+import { Gift, Hexagon, CircleDollarSign, ScrollText, Key, Sparkles, Shovel, Star, Ticket, Gem, Coins } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { findDiceAndRewards, RollingRewards } from '../_utils/simulate';
@@ -39,7 +39,6 @@ const REWARD_ROWS: { key: keyof MilestoneRewards; label: string; icons: LucideIc
 ];
 
 const ROLLING_REWARD_ROWS: { key: keyof RollingRewards; label: string; icons: LucideIcon[] }[] = [
-  { key: 'diceFromTiles',   label: 'Bonus Dice',        icons: [Dice6] },
   { key: 'gems',            label: 'Gems',               icons: [Gem] },
   { key: 'chromaKeys',      label: 'Chromatic Keys',     icons: [Key] },
   { key: 'wishCoins',       label: 'Wish Coins',         icons: [Sparkles] },
