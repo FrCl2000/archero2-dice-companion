@@ -15,15 +15,17 @@ enum Stat {
   ROLLS_DONE = 'Rolls Done',
   INITIAL_DICE = 'Initial Dice',
   EXTRA_DICE = 'Extra Dice',
-  // GEMS = "Gems",
-  // CHROMA = "Chromatic Keys",
-  // WISHES = "Wish Coins",
-  // SHOVELS = "Rune Shovels",
-  // PROMISE = "Promise Shovels",
-  // OTTA = "Otta Shards",
-  // GOLD = "Gold Coins",
+  GEMS = 'Gems',
+  CHROMA = 'Chromatic Keys',
+  WISHES = 'Wish Coins',
+  PROMISE = 'Promise Shovels',
+  OTTA = 'Otta Shards',
+  GOLD = 'Gold Coins',
+  DICE_FROM_TILES = 'Dice From Tiles',
   TILE = 'Tile',
 }
+
+const NUM_RUNS = 10_000;
 
 /**
  * Tracks results of a single simulation run, including points, dice gained/spent.
@@ -42,8 +44,8 @@ class SimResult {
    * Add points to the simulation result and check for milestone rewards.
    * @param numPoints - Number of points gained
    */
-  addPoints(numPoints: number) {
-    if (numPoints <= 0) return 0;
+  addPoints(numPoints: number): void {
+    if (numPoints <= 0) return;
     this.stats[Stat.POINTS] += numPoints;
     let numDice = 0;
 
@@ -60,8 +62,8 @@ class SimResult {
    * Add dice rolls and check for roll-task milestone rewards.
    * @param numRolls - Number of dice rolled
    */
-  addRolls(numRolls: number) {
-    if (numRolls <= 0) return 0;
+  addRolls(numRolls: number): void {
+    if (numRolls <= 0) return;
     this.stats[Stat.ROLLS_DONE] += numRolls;
 
     if (this.stats[Stat.EXTRA_DICE] <= numRolls) {
@@ -120,8 +122,9 @@ class FlatTile extends Tile {
 
   getReward(multiplier: number, result: SimResult) {
     result.addPoints(this.points * multiplier);
-    // result.stats[Stat.GEMS] += this.gems * multiplier;
+    result.stats[Stat.GEMS] += this.gems * multiplier;
     result.stats[Stat.EXTRA_DICE] += this.dice * multiplier;
+    result.stats[Stat.DICE_FROM_TILES] += this.dice * multiplier;
   }
 }
 
@@ -131,17 +134,19 @@ class FlatTile extends Tile {
 class GrandPrizeTile extends Tile {
   getReward(multiplier: number, result: SimResult) {
     const prizes = [
-      // { prize: Stat.CHROMA, amount: 2 },
-      // { prize: Stat.WISHES, amount: 1 },
-      // { prize: Stat.GEMS, amount: 100 },
-      // { prize: Stat.PROMISE, amount: 1 },
-      { prize: null, amount: 0 },
+      { prize: Stat.CHROMA, amount: 2 },
+      { prize: Stat.WISHES, amount: 1 },
+      { prize: Stat.GEMS, amount: 100 },
+      { prize: Stat.PROMISE, amount: 1 },
       { prize: Stat.EXTRA_DICE, amount: 2 },
       { prize: Stat.EXTRA_DICE, amount: 1 },
     ];
-    const weights = [666 + 2666 + 2666 + 666, 666, 2666];
+    const weights = [666, 2666, 2666, 666, 666, 2666];
     const spin = weightedChoice(prizes, weights);
-    if (spin.prize) {
+    if (spin.prize === Stat.EXTRA_DICE) {
+      result.stats[Stat.EXTRA_DICE] += spin.amount * multiplier;
+      result.stats[Stat.DICE_FROM_TILES] += spin.amount * multiplier;
+    } else if (spin.prize) {
       result.stats[spin.prize] += spin.amount * multiplier;
     }
   }
@@ -171,17 +176,19 @@ class FateWheelTile extends Tile {
   getReward(multiplier: number, result: SimResult) {
     const prizes = [
       { prize: Stat.POINTS, amount: 500 },
-      // { prize: Stat.OTTA, amount: 2 },
-      // { prize: Stat.WISHES, amount: 1 },
+      { prize: Stat.OTTA, amount: 2 },
+      { prize: Stat.WISHES, amount: 1 },
       { prize: Stat.EXTRA_DICE, amount: 1 },
-      // { prize: Stat.GOLD, amount: 2000 },
-      { prize: null, amount: 0 },
+      { prize: Stat.GOLD, amount: 2000 },
     ];
-    const weights = [2500, /*300, 700,*/ 1500, 300 + 700 + 5000];
+    const weights = [2500, 300, 700, 1500, 5000];
     const spin = weightedChoice(prizes, weights);
 
     if (spin.prize === Stat.POINTS) {
       result.addPoints(spin.amount * multiplier);
+    } else if (spin.prize === Stat.EXTRA_DICE) {
+      result.stats[Stat.EXTRA_DICE] += spin.amount * multiplier;
+      result.stats[Stat.DICE_FROM_TILES] += spin.amount * multiplier;
     } else if (spin.prize) {
       result.stats[spin.prize] += spin.amount * multiplier;
     }
@@ -219,6 +226,74 @@ const multiplierMap: number[] = [
   1, 1, 1, 1, 1, 1, 1, 1, 10, 10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10, 10, 10, 1,
 ];
 
+function remainingTurns(result: SimResult, numDiceRolls: number): number {
+  return (
+    numDiceRolls -
+    result.stats[Stat.INITIAL_DICE] +
+    result.stats[Stat.EXTRA_DICE]
+  );
+}
+
+function cappedMultiplier(
+  tileIndex: number,
+  numTurns: number,
+  rollsToBreakpoint?: number
+): number {
+  const baseMultiplier = multiplierMap[tileIndex];
+
+  if (numTurns < 20 || (rollsToBreakpoint !== undefined && rollsToBreakpoint < 2)) {
+    return Math.min(1, baseMultiplier);
+  }
+  if (numTurns < 30 || (rollsToBreakpoint !== undefined && rollsToBreakpoint < 3)) {
+    return Math.min(2, baseMultiplier);
+  }
+  if (numTurns < 50 || (rollsToBreakpoint !== undefined && rollsToBreakpoint < 4)) {
+    return Math.min(3, baseMultiplier);
+  }
+  if (numTurns < 100 || (rollsToBreakpoint !== undefined && rollsToBreakpoint < 6)) {
+    return Math.min(5, baseMultiplier);
+  }
+
+  return baseMultiplier;
+}
+
+function playTurn(
+  result: SimResult,
+  numDiceRolls: number,
+  rollsToBreakpoint?: number
+): void {
+  const numTurns = remainingTurns(result, numDiceRolls);
+  const multiplier = cappedMultiplier(
+    result.stats[Stat.TILE],
+    numTurns,
+    rollsToBreakpoint
+  );
+
+  const oldTile = board[result.stats[Stat.TILE]];
+  const roll = oldTile.roll(multiplier, result);
+  result.stats[Stat.TILE] = (result.stats[Stat.TILE] + roll) % board.length;
+
+  const newTile = board[result.stats[Stat.TILE]];
+  newTile.getReward(multiplier, result);
+}
+
+function createInitialResult(
+  currentPoints: number,
+  rollsDone: number,
+  currentTile: number
+): SimResult {
+  const initialResult = new SimResult();
+
+  initialResult.addRolls(rollsDone);
+  initialResult.stats[Stat.EXTRA_DICE] = 0;
+
+  initialResult.addPoints(currentPoints);
+  initialResult.stats[Stat.EXTRA_DICE] = 0;
+
+  initialResult.stats[Stat.TILE] = currentTile;
+  return initialResult;
+}
+
 /**
  * Simulate going around the board starting with a specified number of dice rolls.
  *
@@ -234,34 +309,8 @@ function simulateSingleRun(
   prevRun: SimResult | null = null
 ): SimResult {
   const result = prevRun ?? new SimResult();
-  while (
-    result.stats[Stat.POINTS] < pointsToMeet &&
-    numDiceRolls -
-      result.stats[Stat.INITIAL_DICE] +
-      result.stats[Stat.EXTRA_DICE] >
-      0
-  ) {
-    // turns left
-    const numTurns =
-      numDiceRolls -
-      result.stats[Stat.INITIAL_DICE] +
-      result.stats[Stat.EXTRA_DICE];
-
-    // enforce multiplier caps by turns taken
-    let multiplier = multiplierMap[result.stats[Stat.TILE]];
-    if (numTurns < 20) multiplier = Math.min(1, multiplier);
-    else if (numTurns < 30) multiplier = Math.min(2, multiplier);
-    else if (numTurns < 50) multiplier = Math.min(3, multiplier);
-    else if (numTurns < 100) multiplier = Math.min(5, multiplier);
-
-    // roll and move
-    const oldTile = board[result.stats[Stat.TILE]];
-    const roll = oldTile.roll(multiplier, result);
-    result.stats[Stat.TILE] = (result.stats[Stat.TILE] + roll) % board.length;
-
-    // apply tile reward
-    const tile = board[result.stats[Stat.TILE]];
-    tile.getReward(multiplier, result);
+  while (result.stats[Stat.POINTS] < pointsToMeet && remainingTurns(result, numDiceRolls) > 0) {
+    playTurn(result, numDiceRolls);
   }
 
   // handle "just shy of breakpoint" edge case
@@ -275,28 +324,7 @@ function simulateSingleRun(
         (result.stats[Stat.INITIAL_DICE] < numDiceRolls ||
           result.stats[Stat.EXTRA_DICE] > 0)
       ) {
-        const numTurns =
-          numDiceRolls -
-          result.stats[Stat.INITIAL_DICE] +
-          result.stats[Stat.EXTRA_DICE];
-
-        let multiplier = multiplierMap[result.stats[Stat.TILE]];
-        if (numTurns < 20 || difference < 2)
-          multiplier = Math.min(1, multiplier);
-        else if (numTurns < 30 || difference < 3)
-          multiplier = Math.min(2, multiplier);
-        else if (numTurns < 50 || difference < 4)
-          multiplier = Math.min(3, multiplier);
-        else if (numTurns < 100 || difference < 6)
-          multiplier = Math.min(5, multiplier);
-
-        const oldTile = board[result.stats[Stat.TILE]];
-        const roll = oldTile.roll(multiplier, result);
-        result.stats[Stat.TILE] =
-          (result.stats[Stat.TILE] + roll) % board.length;
-
-        const tile = board[result.stats[Stat.TILE]];
-        tile.getReward(multiplier, result);
+        playTurn(result, numDiceRolls, difference);
 
         difference = nextDiceBp - result.stats[Stat.ROLLS_DONE];
       }
@@ -324,21 +352,9 @@ export function calculateSuccessRate(
   currentTile = 0
 ): number {
   let numSuccess = 0;
-  const numRuns = 10_000;
 
-  for (let i = 0; i < numRuns; i++) {
-    const initialResult = new SimResult();
-
-    // add previous rolls, but reset free dice so it doesn’t spill over
-    initialResult.addRolls(rollsDone);
-    initialResult.stats[Stat.EXTRA_DICE] = 0;
-
-    // add previous points, also reset free dice
-    initialResult.addPoints(currentPoints);
-    initialResult.stats[Stat.EXTRA_DICE] = 0;
-
-    // set starting tile
-    initialResult.stats[Stat.TILE] = currentTile;
+  for (let i = 0; i < NUM_RUNS; i++) {
+    const initialResult = createInitialResult(currentPoints, rollsDone, currentTile);
 
     const run = simulateSingleRun(numDice + rollsDone, Infinity, initialResult);
 
@@ -348,13 +364,14 @@ export function calculateSuccessRate(
   }
 
   const successRate =
-    ((numSuccess === numRuns ? numRuns - 1 : numSuccess) / numRuns) * 100;
+    ((numSuccess === NUM_RUNS ? NUM_RUNS - 1 : numSuccess) / NUM_RUNS) * 100;
 
   return successRate;
 }
 
 /**
  * Find the number of dice needed to reach a goal with a given success rate.
+ * Kept for use in run_simulate.ts and other callers that only need the dice count.
  *
  * @param goalPoints - Points target to reach.
  * @param successRate - Desired success rate (e.g., 99.99).
@@ -364,20 +381,73 @@ export function findDiceForSuccessRate(
   goalPoints: number,
   successRate: number
 ): number {
-  const numRuns = 10_000;
-  const results: number[] = [];
+  return findDiceAndRewards(goalPoints, successRate).dice;
+}
 
-  for (let i = 0; i < numRuns; i++) {
+/**
+ * Average rolling rewards earned from board tiles across simulations.
+ * These are rewards received by landing on tiles (not from point milestones).
+ */
+export type RollingRewards = {
+  gems: number;
+  chromaKeys: number;
+  wishCoins: number;
+  promiseShovels: number;
+  ottaShards: number;
+  goldCoins: number;
+  diceFromTiles: number;
+};
+
+/**
+ * Run NUM_RUNS simulations and return both the dice needed (at the given success
+ * rate percentile) and the average rolling rewards — all from a single simulation
+ * loop. Each run uses unlimited dice and stops as soon as goalPoints is reached,
+ * so rolling rewards represent what a player earns on the way to their goal.
+ *
+ * @param goalPoints - Points target; each run stops when this is reached.
+ * @param successRate - Desired success rate (e.g., 98.69).
+ * @returns Dice count at the requested percentile and average rolling rewards.
+ */
+export function findDiceAndRewards(
+  goalPoints: number,
+  successRate: number
+): { dice: number; rollingRewards: RollingRewards } {
+  const diceResults: number[] = [];
+  const totals = {
+    gems: 0, chromaKeys: 0, wishCoins: 0,
+    promiseShovels: 0, ottaShards: 0, goldCoins: 0, diceFromTiles: 0,
+  };
+
+  for (let i = 0; i < NUM_RUNS; i++) {
     const run = simulateSingleRun(Infinity, goalPoints);
-    results.push(run.stats[Stat.INITIAL_DICE]);
+    diceResults.push(run.stats[Stat.INITIAL_DICE]);
+    totals.gems += run.stats[Stat.GEMS];
+    totals.chromaKeys += run.stats[Stat.CHROMA];
+    totals.wishCoins += run.stats[Stat.WISHES];
+    totals.promiseShovels += run.stats[Stat.PROMISE];
+    totals.ottaShards += run.stats[Stat.OTTA];
+    totals.goldCoins += run.stats[Stat.GOLD];
+    totals.diceFromTiles += run.stats[Stat.DICE_FROM_TILES];
   }
 
-  // sort by dice used ascending
-  results.sort((a, b) => a - b);
-
-  // clamp successRate between [0,100]
+  // sort by dice used ascending to find the percentile
+  diceResults.sort((a, b) => a - b);
   const rate = Math.max(0, Math.min(100, successRate));
-  const index = Math.floor((rate / 100) * numRuns) - 1;
+  const index = Math.floor((rate / 100) * NUM_RUNS) - 1;
+  const dice = index < 0 ? 0 : diceResults[index];
 
-  return index < 0 ? 0 : results[index];
+  const round1dp = (n: number) => Math.round((n / NUM_RUNS) * 10) / 10;
+
+  return {
+    dice,
+    rollingRewards: {
+      gems: round1dp(totals.gems),
+      chromaKeys: round1dp(totals.chromaKeys),
+      wishCoins: round1dp(totals.wishCoins),
+      promiseShovels: round1dp(totals.promiseShovels),
+      ottaShards: round1dp(totals.ottaShards),
+      goldCoins: round1dp(totals.goldCoins),
+      diceFromTiles: round1dp(totals.diceFromTiles),
+    },
+  };
 }
